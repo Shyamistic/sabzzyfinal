@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CONSUMER
+  VENDOR
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  phoneNumber   String    @unique
+  password      String
+  name          String?
+  email         String?
+  role          Role      @default(CONSUMER)
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  vendorProfile VendorProfile?
+  orders        Order[]
+  cart          CartItem[]
+  wishlist      Wishlist[]
+  addresses     Address[]
+
+  @@map("users")
+}
+
+model VendorProfile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  shopName      String
+  shopAddress   String
+  description   String?
+  rating        Float     @default(4.5)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products      Product[]
+  orders        Order[]
+
+  @@map("vendor_profiles")
+}
+
+model Product {
+  id            String     @id @default(uuid())
+  name          String
+  description   String?
+  price         Float
+  discountPrice Float?
+  category      String
+  unit          String     @default("kg")
+  stock         Int        @default(0)
+  imageUrl      String?
+  isFeatured    Boolean    @default(false)
+  vendorId      String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  vendor        VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  wishlist      Wishlist[]
+
+  @@index([category])
+  @@index([vendorId])
+  @@map("products")
+}
+
+model CartItem {
+  id         String   @id @default(uuid())
+  userId     String
+  productId  String
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  userId          String
+  vendorId        String
+  status          OrderStatus @default(PENDING)
+  totalAmount     Float
+  paymentMethod   String
+  paymentId       String?
+  deliveryAddress Json
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  user            User          @relation(fields: [userId], references: [id])
+  vendor          VendorProfile @relation(fields: [vendorId], references: [id])
+  items           OrderItem[]
+
+  @@index([userId])
+  @@index([vendorId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  productId  String
+  quantity   Int
+  price      Float
+  
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Address {
+  id           String   @id @default(uuid())
+  userId       String
+  title        String   @default("Home")
+  fullAddress  String
+  landmark     String?
+  city         String
+  state        String
+  pincode      String
+  phoneNumber  String
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Wishlist {
+  id         String   @id @default(uuid())
+  userId     String
+  productId  String
+  createdAt  DateTime @default(now())
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("wishlist")
+}
+
+model OTP {
+  id          String   @id @default(uuid())
+  phoneNumber String
+  otp         String
+  expiresAt   DateTime
+  isUsed      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([phoneNumber])
+  @@map("otps")
+}
